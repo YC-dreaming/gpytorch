@@ -12,9 +12,9 @@ class MaternKernel(Kernel):
 
     def __init__(
         self,
-        nu,
+        nu=2.5,
         ard_num_dims=None,
-        log_lengthscale_bounds=(-100, 100),
+        lengthscale_prior=None,
         active_dims=None,
         eps=1e-8,
     ):
@@ -23,7 +23,7 @@ class MaternKernel(Kernel):
         super(MaternKernel, self).__init__(
             has_lengthscale=True,
             ard_num_dims=ard_num_dims,
-            log_lengthscale_bounds=log_lengthscale_bounds,
+            lengthscale_prior=lengthscale_prior,
             active_dims=active_dims,
         )
         self.nu = nu
