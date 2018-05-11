@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 
 import torch
 from ..module import Module
+from ..lazy import LazyVariable, NonLazyVariable
 
 
 class Kernel(Module):
@@ -83,7 +84,17 @@ class AdditiveKernel(Kernel):
         self.kernel_2 = kernel_2
 
     def forward(self, x1, x2):
-        return self.kernel_1(x1, x2) + self.kernel_2(x1, x2)
+        covar1 = self.kernel_1(x1, x2)
+        covar2 = self.kernel_2(x1, x2)
+        if isinstance(covar1, LazyVariable) and torch.is_tensor(covar2):
+            # covar1 is lazy, covar2 is not
+            return covar1 + NonLazyVariable(covar2)
+        elif torch.is_tensor(covar1) and isinstance(covar2, LazyVariable):
+            # covar2 is lazy, covar1 is not
+            return NonLazyVariable(covar1) + covar2
+        else:
+            # Either both are lazy, or both arent
+            return self.kernel_1(x1, x2) + self.kernel_2(x1, x2)
 
 
 class ProductKernel(Kernel):
