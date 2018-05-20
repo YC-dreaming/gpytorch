@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 
 import torch
 import math
-from torch import nn
 from ..functions import add_diag
 from ..random_variables import GaussianRandomVariable
 from .likelihood import Likelihood
@@ -16,8 +15,8 @@ class GaussianLikelihood(Likelihood):
     def __init__(self, noise_prior=None):
         super(GaussianLikelihood, self).__init__()
         self.register_parameter(
-            "log_noise",
-            nn.Parameter(torch.zeros(1)),
+            name="log_noise",
+            parameter=torch.nn.Parameter(torch.zeros(1)),
             prior=noise_prior,
         )
 

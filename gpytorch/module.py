@@ -92,15 +92,15 @@ class Module(nn.Module):
                     )
                 )
 
-            # Ensure initializion is within bounds
-            param = self._parameters[name]
-            lower_bound, upper_bound = self._bounds[name]
-            lower_mask = param.data < lower_bound
-            if lower_mask.view(-1).sum():
-                raise AttributeError("Parameter {} exceeds lower bound".format(name))
-            upper_mask = param.data > upper_bound
-            if upper_mask.view(-1).sum():
-                raise AttributeError("Parameter {} exceeds upper bound".format(name))
+            # Ensure value is contained in support of prior (if present)
+            prior = self._priors.get(name)
+            if prior is not None:
+                param = self._parameters[name]
+                if not prior.is_in_support(param):
+                    raise ValueError(
+                        "Value of parameter {param} not contained in support "
+                        "of specified prior".format(param=param)
+                    )
         return self
 
     def named_parameter_priors(self):
@@ -129,22 +129,24 @@ class Module(nn.Module):
                 ):
                     yield name, strategy
 
-    def register_parameter(self, name, param, prior=None):
+    def register_parameter(self, name, parameter, prior=None):
         """
         Adds a parameter to the module.
         The parameter can be accessed as an attribute using given name.
 
         name (str): name of parameter
-        param (torch.nn.Parameter): parameter
+        parameter (nn.Parameter): the parameter (value ignored if prior is passed)
         prior (Prior): prior for parameter (default: None)
         """
         if "_parameters" not in self.__dict__:
             raise AttributeError(
                 "cannot assign parameter before Module.__init__() call"
             )
-        super(Module, self).register_parameter(name, param)
+        super(Module, self).register_parameter(name, parameter)
         if prior is not None:
-            self.set_priors(**{name: prior})
+            shaped_prior = prior.shape_as(parameter)
+            self.set_priors(**{name: shaped_prior})
+            self.initialize(**{name: shaped_prior.initial_guess})
 
     def register_variational_strategy(self, name):
         self._variational_strategies[name] = None

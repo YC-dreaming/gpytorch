@@ -5,7 +5,8 @@ from __future__ import unicode_literals
 
 import torch
 from .kernel import Kernel
-from ..lazy import LazyVariable, DiagLazyVariable, InvQuadLazyVariable
+from ..functions import add_jitter
+from ..lazy import LazyVariable, DiagLazyVariable, MatmulLazyVariable, RootLazyVariable
 from ..random_variables import GaussianRandomVariable
 from ..variational import MVNVariationalStrategy
 
@@ -21,9 +22,9 @@ class InducingPointKernel(Kernel):
         if inducing_points.ndimension() != 2:
             raise RuntimeError("Inducing points should be 2 dimensional")
         self.register_parameter(
-            "inducing_points",
-            torch.nn.Parameter(inducing_points.unsqueeze(0)),
-            bounds=(-1e10, 1e10),
+            name="inducing_points",
+            parameter=torch.nn.Parameter(inducing_points.unsqueeze(0)),
+            #TODO: Prior for inducing points bounds=(-1e10, 1e10),
         )
         self.register_variational_strategy("inducing_point_strategy")
 
@@ -32,7 +33,8 @@ class InducingPointKernel(Kernel):
             del self._cached_kernel_mat
         return super(InducingPointKernel, self).train(mode)
 
-    def _inducing_forward(self):
+    @property
+    def _inducing_mat(self):
         if not self.training and hasattr(self, "_cached_kernel_mat"):
             return self._cached_kernel_mat
         else:
@@ -41,15 +43,33 @@ class InducingPointKernel(Kernel):
                 self._cached_kernel_mat = res
             return res
 
+    @property
+    def _inducing_inv_root(self):
+        if not self.training and hasattr(self, "_cached_kernel_inv_root"):
+            return self._cached_kernel_inv_root
+        else:
+            inv_roots_list = []
+            for i in range(self._inducing_mat.size(0)):
+                jitter_mat = add_jitter(self._inducing_mat[i])
+                chol = torch.potrf(jitter_mat)
+                eye = torch.eye(chol.size(-1), device=chol.device)
+                inv_roots_list.append(torch.trtrs(eye, chol)[0])
+
+            res = torch.cat(inv_roots_list, 0)
+            if not self.training:
+                self._cached_kernel_inv_root = res
+            return res
+
     def _get_covariance(self, x1, x2):
-        k_uu = self._inducing_forward()
         k_ux1 = self.base_kernel_module(x1, self.inducing_points)
         if torch.equal(x1, x2):
-            k_ux2 = k_ux1
+            covar = RootLazyVariable(k_ux1.matmul(self._inducing_inv_root))
         else:
             k_ux2 = self.base_kernel_module(x2, self.inducing_points)
-
-        covar = InvQuadLazyVariable(k_uu, k_ux1, k_ux2)
+            covar = MatmulLazyVariable(
+                k_ux1.matmul(self._inducing_inv_root),
+                k_ux2.matmul(self._inducing_inv_root).transpose(-1, -2),
+            )
         return covar
 
     def _covar_diag(self, inputs):

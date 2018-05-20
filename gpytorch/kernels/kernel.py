@@ -23,8 +23,8 @@ class Kernel(Module):
         if has_lengthscale:
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
             self.register_parameter(
-                "log_lengthscale",
-                torch.nn.Parameter(torch.zeros(1, 1, lengthscale_num_dims)),
+                name="log_lengthscale",
+                parameter=torch.nn.Parameter(torch.zeros(1, 1, lengthscale_num_dims)),
                 prior=lengthscale_prior,
             )
 

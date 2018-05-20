@@ -58,15 +58,12 @@ class AddedDiagLazyVariable(SumLazyVariable):
                 self._lazy_var, max_iter
             )
             self._woodbury_cache = pivoted_cholesky.woodbury_factor(
-                self._piv_chol_self, self._diag_var.diag().data[0]
+                self._piv_chol_self, self._diag_var.diag()
             )
 
         def precondition_closure(tensor):
             return pivoted_cholesky.woodbury_solve(
-                tensor,
-                self._piv_chol_self,
-                self._woodbury_cache,
-                self._diag_var.diag().data[0],
+                tensor, self._piv_chol_self, self._woodbury_cache, self._diag_var.diag()
             )
 
         return precondition_closure

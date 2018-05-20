@@ -23,9 +23,21 @@ class GammaPrior(TorchDistributionPrior):
         elif concentration.shape != rate.shape:
             raise ValueError("concentration and rate must have the same shape")
         self._distribution = Gamma(
-            concentration=concentration.type(torch.float), rate=rate.type(torch.float)
+            concentration=concentration.type(torch.float),
+            rate=rate.type(torch.float),
+            validate_args=True,
         )
         self._log_transform = log_transform
+
+    @property
+    def initial_guess(self):
+        # return mode if it exists, o/w mean
+        c = self.distribution.concentration
+        has_mode = (c > 1).type_as(c)
+        return (c - has_mode) / self.distribution.rate
+
+    def is_in_support(self, parameter):
+        return bool((parameter > 0).all().item())
 
     def shape_as(self, tensor):
         if not self.shape == tensor.shape:

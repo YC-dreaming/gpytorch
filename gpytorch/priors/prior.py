@@ -8,6 +8,14 @@ from abc import abstractmethod, abstractproperty, ABC
 
 class Prior(ABC):
 
+    @abstractproperty
+    def initial_guess(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def is_in_support(self, parameter):
+        raise NotImplementedError()
+
     @property
     def log_transform(self):
         return self._log_transform

@@ -19,11 +19,13 @@ class SoftmaxLikelihood(Likelihood):
         super(SoftmaxLikelihood, self).__init__()
         self.n_features = n_features
         self.n_classes = n_classes
-
-        mixing_weights = nn.Parameter(
-            torch.ones(n_classes, n_features).fill_(1. / n_features)
+        self.register_parameter(
+            name="mixing_weights",
+            parameter=nn.Parameter(
+                torch.ones(n_classes, n_features).fill_(1. / n_features)
+            ),
+            # TODO: Add prior
         )
-        self.register_parameter("mixing_weights", mixing_weights, bounds=(-2, 2))
 
     def forward(self, latent_func):
         """
@@ -40,12 +42,8 @@ class SoftmaxLikelihood(Likelihood):
         """
         if not isinstance(latent_func, GaussianRandomVariable):
             raise RuntimeError(
-                " ".join(
-                    [
-                        "SoftmaxLikelihood expects a Gaussian",
-                        "distributed latent function to make predictions",
-                    ]
-                )
+                "SoftmaxLikelihood expects a Gaussian "
+                "distributed latent function to make predictions"
             )
 
         n_samples = settings.num_likelihood_samples.value()

@@ -51,7 +51,7 @@ class ExactMarginalLogLikelihood(MarginalLogLikelihood):
         )
         res.div_(n_data)
 
-        # Add log probs of priors on the parameters
+        # Add log probs of priors on the parameters (if any)
         for _, param, prior in self.named_parameter_priors():
             res.add_(prior.log_prob(param))
 

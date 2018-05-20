@@ -21,7 +21,7 @@ class NormalPrior(TorchDistributionPrior):
         elif loc.shape != scale.shape:
             raise ValueError("loc and scale must have the same shape")
         self._distribution = Normal(
-            loc=loc.type(torch.float), scale=scale.type(torch.float)
+            loc=loc.type(torch.float), scale=scale.type(torch.float), validate_args=True
         )
         self._log_transform = log_transform
 
@@ -34,6 +34,13 @@ class NormalPrior(TorchDistributionPrior):
                 raise ValueError("Prior and parameter have incompatible shapes.")
             self._distribution = Normal(loc=loc_new, scale=scale_new)
         return self
+
+    @property
+    def initial_guess(self):
+        return self.distribution.mean
+
+    def is_in_support(self, parameter):
+        return True
 
     @property
     def shape(self):

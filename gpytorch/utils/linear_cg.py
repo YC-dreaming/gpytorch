@@ -18,6 +18,7 @@ def linear_cg(
     tolerance=1e-6,
     eps=1e-20,
     max_iter=None,
+    max_tridiag_iter=None,
     initial_guess=None,
     preconditioner=None,
 ):
@@ -35,6 +36,7 @@ def linear_cg(
       - tolerance - stop the solve when the max residual is less than this
       - eps - noise to add to prevent division by zero
       - max_iter - the maximum number of CG iterations
+      - max_tridiag_iter - the maximum size of the tridiagonalization matrix
       - initial_guess - an initial guess at the solution `result`
       - precondition_closure - a functions which left-preconditions a supplied vector
 
@@ -50,6 +52,8 @@ def linear_cg(
     # Some default arguments
     if max_iter is None:
         max_iter = settings.max_cg_iterations.value()
+    if max_tridiag_iter is None:
+        max_tridiag_iter = settings.max_lanczos_quadrature_iterations.value()
     if initial_guess is None:
         initial_guess = rhs.new(rhs.size()).zero_()
     if preconditioner is None:
@@ -64,6 +68,7 @@ def linear_cg(
     # Get some constants
     n_rows = rhs.size(-2)
     n_iter = min(max_iter, n_rows)
+    n_tridiag_iter = min(max_tridiag_iter, n_rows)
 
     # result <- x_{0}
     result = initial_guess
@@ -79,7 +84,7 @@ def linear_cg(
 
     # Sometime we're lucky and the preconditioner solves the system right away
     residual_norm = residual.norm(2, dim=-2)
-    if not torch.sum(residual_norm > tolerance) and not n_tridiag:
+    if (residual_norm < tolerance).all() and not n_tridiag:
         n_iter = 0  # Skip the iteration!
 
     # Otherwise, let's define precond_residual and curr_conjugate_vec
@@ -91,20 +96,22 @@ def linear_cg(
 
         # Define storage matrices
         mul_storage = residual.new(residual.size())
-        alpha = residual.new(
-            rhs.size(0), 1, rhs.size(-1)
-        ) if rhs.ndimension() == 3 else residual.new(
-            1, rhs.size(-1)
+        alpha = (
+            residual.new(rhs.size(0), 1, rhs.size(-1))
+            if rhs.ndimension() == 3
+            else residual.new(1, rhs.size(-1))
         )
         beta = alpha.new(alpha.size())
 
     # Define tridiagonal matrices, if applicable
     if n_tridiag:
         if rhs.ndimension() == 3:
-            t_mat = residual.new(n_iter, n_iter, rhs.size(0), n_tridiag).zero_()
+            t_mat = residual.new(
+                n_tridiag_iter, n_tridiag_iter, rhs.size(0), n_tridiag
+            ).zero_()
             alpha_reciprocal = alpha.new(rhs.size(0), n_tridiag)
         else:
-            t_mat = residual.new(n_iter, n_iter, n_tridiag).zero_()
+            t_mat = residual.new(n_tridiag_iter, n_tridiag_iter, n_tridiag).zero_()
             alpha_reciprocal = alpha.new(n_tridiag)
 
         prev_alpha_reciprocal = alpha.new(alpha_reciprocal.size())
@@ -131,7 +138,7 @@ def linear_cg(
         # If residual are sufficiently small, then exit loop
         # Alternatively, exit if this is our last iteration
         torch.norm(residual, 2, dim=-2, out=residual_norm)
-        if not (torch.sum(residual_norm > tolerance)) and not n_tridiag:
+        if (residual_norm < tolerance).all() and not n_tridiag:
             break
 
         # Update precond_residual
@@ -150,7 +157,7 @@ def linear_cg(
         curr_conjugate_vec.mul_(beta).add_(precond_residual)
 
         # Update tridiagonal matrices, if applicable
-        if n_tridiag:
+        if n_tridiag and k < n_tridiag_iter:
             alpha_tridiag = alpha.squeeze_(-2).narrow(-1, 0, n_tridiag)
             beta_tridiag = beta.squeeze_(-2).narrow(-1, 0, n_tridiag)
             torch.reciprocal(alpha_tridiag, out=alpha_reciprocal)
