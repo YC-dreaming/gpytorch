@@ -43,4 +43,4 @@ class TorchDistributionPrior(Prior):
         return self._distribution
 
     def _log_prob(self, parameter):
-        return self.distribution.log_prob(parameter).sum()
+        return self.distribution.log_prob(parameter)

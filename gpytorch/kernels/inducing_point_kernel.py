@@ -4,11 +4,16 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from .kernel import Kernel
-from ..functions import add_jitter
-from ..lazy import LazyVariable, DiagLazyVariable, MatmulLazyVariable, RootLazyVariable
-from ..random_variables import GaussianRandomVariable
-from ..variational import MVNVariationalStrategy
+from gpytorch.kernels import Kernel
+from gpytorch.functions import add_jitter
+from gpytorch.lazy import (
+    DiagLazyVariable,
+    LazyVariable,
+    MatmulLazyVariable,
+    RootLazyVariable,
+)
+from gpytorch.random_variables import GaussianRandomVariable
+from gpytorch.variational import MVNVariationalStrategy
 
 
 class InducingPointKernel(Kernel):
@@ -24,7 +29,7 @@ class InducingPointKernel(Kernel):
         self.register_parameter(
             name="inducing_points",
             parameter=torch.nn.Parameter(inducing_points.unsqueeze(0)),
-            #TODO: Prior for inducing points bounds=(-1e10, 1e10),
+            # TODO: Prior for inducing points? bounds=(-1e10, 1e10),
         )
         self.register_variational_strategy("inducing_point_strategy")
 

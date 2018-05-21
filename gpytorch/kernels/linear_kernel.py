@@ -4,8 +4,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from ..lazy import MatmulLazyVariable, RootLazyVariable
-from .kernel import Kernel
+from gpytorch.lazy import MatmulLazyVariable, RootLazyVariable
+from gpytorch.kernels import Kernel
 
 
 class LinearKernel(Kernel):
@@ -27,7 +27,7 @@ class LinearKernel(Kernel):
         )
         self.register_parameter(
             name="offset",
-            parameter=torch.nn.Parmeter(torch.zeros(1, 1, num_dimensions)),
+            parameter=torch.nn.Parameter(torch.zeros(1, 1, num_dimensions)),
             prior=offset_prior,
         )
 

@@ -12,8 +12,9 @@ from torch import optim
 from torch.autograd import Variable
 from torch.utils.data import TensorDataset, DataLoader
 from gpytorch.kernels import RBFKernel
-from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.means import ConstantMean
+from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 
 
@@ -33,10 +34,12 @@ class GPRegressionModel(gpytorch.models.GridInducingVariationalGP):
         super(GPRegressionModel, self).__init__(
             grid_size=20, grid_bounds=[(-0.05, 1.05)]
         )
-        self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
-        self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
+        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
+        self.covar_module = RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(-5, 6))
         self.register_parameter(
-            "log_outputscale", torch.nn.Parameter(torch.Tensor([0])), bounds=(-5, 6)
+            name="log_outputscale",
+            parameter=torch.nn.Parameter(torch.Tensor([0])),
+            prior=SmoothedBoxPrior(-5, 6),
         )
 
     def forward(self, x):

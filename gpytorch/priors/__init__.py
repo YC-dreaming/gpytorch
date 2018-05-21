@@ -5,6 +5,6 @@ from __future__ import unicode_literals
 
 from .gamma import GammaPrior
 from .normal import NormalPrior
-from .smoothed_uniform import SmoothedUniformPrior
+from .smoothed_box import SmoothedBoxPrior
 
-__all__ = [GammaPrior, NormalPrior, SmoothedUniformPrior]
+__all__ = [GammaPrior, NormalPrior, SmoothedBoxPrior]

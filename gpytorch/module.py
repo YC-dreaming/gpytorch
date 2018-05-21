@@ -165,6 +165,7 @@ class Module(nn.Module):
                 )
             param = self._parameters[name]
             self._priors[name] = prior.shape_as(param)
+            self.initialize(**{name: self._priors[name].initial_guess})
         return self
 
     def variational_strategies(self):

@@ -7,11 +7,12 @@ import math
 import torch
 import unittest
 import gpytorch
-from torch import nn, optim
+from torch import optim
 from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel
-from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import BernoulliLikelihood
+from gpytorch.means import ConstantMean
+from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 
 
@@ -23,10 +24,12 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
 
     def __init__(self):
         super(GPClassificationModel, self).__init__(grid_size=32, grid_bounds=[(0, 1)])
-        self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
-        self.covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
+        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
+        self.covar_module = RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(-5, 6))
         self.register_parameter(
-            "log_outputscale", nn.Parameter(torch.Tensor([0])), bounds=(-5, 6)
+            name="log_outputscale",
+            parameter=torch.nn.Parameter(torch.Tensor([0])),
+            prior=SmoothedBoxPrior(-5, 6),
         )
 
     def forward(self, x):

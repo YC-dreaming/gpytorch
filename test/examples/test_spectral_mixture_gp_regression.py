@@ -11,8 +11,9 @@ import gpytorch
 from torch import optim
 from torch.autograd import Variable
 from gpytorch.kernels import SpectralMixtureKernel
-from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.means import ConstantMean
+from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 
 # Simple training data: let's try to learn a sine function
@@ -29,12 +30,12 @@ class SpectralMixtureGPModel(gpytorch.models.ExactGP):
 
     def __init__(self, train_x, train_y, likelihood):
         super(SpectralMixtureGPModel, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = ConstantMean(constant_bounds=(-1, 1))
+        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
         self.covar_module = SpectralMixtureKernel(
             n_mixtures=3,
-            log_mixture_weight_bounds=(-5, 5),
-            log_mixture_mean_bounds=(-5, 5),
-            log_mixture_scale_bounds=(-5, 5),
+            log_mixture_weight_prior=SmoothedBoxPrior(-5, 5),
+            log_mixture_mean_prior=SmoothedBoxPrior(-5, 5),
+            log_mixture_scale_prior=SmoothedBoxPrior(-5, 5),
         )
 
     def forward(self, x):
@@ -58,7 +59,7 @@ class TestSpectralMixtureGPRegression(unittest.TestCase):
             torch.set_rng_state(self.rng_state)
 
     def test_spectral_mixture_gp_mean_abs_error(self):
-        likelihood = GaussianLikelihood(log_noise_bounds=(-5, 5))
+        likelihood = GaussianLikelihood(log_noise_prior=SmoothedBoxPrior(-5, 5))
         gp_model = SpectralMixtureGPModel(train_x.data, train_y.data, likelihood)
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
 

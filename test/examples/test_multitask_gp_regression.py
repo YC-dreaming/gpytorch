@@ -11,8 +11,9 @@ import gpytorch
 from torch import optim
 from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel, IndexKernel
-from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.means import ConstantMean
+from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 
 # Simple training data: let's try to learn a sine function
@@ -33,10 +34,13 @@ class MultitaskGPModel(gpytorch.models.ExactGP):
 
     def __init__(self, train_x, train_y, likelihood):
         super(MultitaskGPModel, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = ConstantMean(constant_bounds=(-1, 1))
-        self.covar_module = RBFKernel(log_lengthscale_bounds=(-6, 6))
+        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
+        self.covar_module = RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(-6, 6))
         self.task_covar_module = IndexKernel(
-            n_tasks=2, rank=1, covar_factor_bounds=(-6, 6), log_var_bounds=(-6, 6)
+            n_tasks=2,
+            rank=1,
+            covar_factor_prior=SmoothedBoxPrior(-6, 6),
+            log_var_prior=SmoothedBoxPrior(-6, 6),
         )
 
     def forward(self, x, i):
@@ -62,7 +66,7 @@ class TestMultiTaskGPRegression(unittest.TestCase):
             torch.set_rng_state(self.rng_state)
 
     def test_multitask_gp_mean_abs_error(self):
-        likelihood = GaussianLikelihood(log_noise_bounds=(-6, 6))
+        likelihood = GaussianLikelihood(log_noise_prior=SmoothedBoxPrior(-6, 6))
         gp_model = MultitaskGPModel(
             (
                 torch.cat([train_x.data, train_x.data]),

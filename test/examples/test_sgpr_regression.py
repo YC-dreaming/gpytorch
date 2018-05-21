@@ -11,8 +11,9 @@ import gpytorch
 from torch import optim
 from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel, InducingPointKernel
-from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.means import ConstantMean
+from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 
 
@@ -36,8 +37,10 @@ class GPRegressionModel(gpytorch.models.ExactGP):
 
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
-        self.base_covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
+        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
+        self.base_covar_module = RBFKernel(
+            log_lengthscale_prior=SmoothedBoxPrior(-5, 6)
+        )
         self.covar_module = InducingPointKernel(
             self.base_covar_module, inducing_points=torch.linspace(0, 1, 32)
         )
@@ -127,9 +130,7 @@ class TestSGPRRegression(unittest.TestCase):
 
         with gpytorch.settings.max_preconditioner_size(
             5
-        ), gpytorch.settings.max_cg_iterations(
-            50
-        ):
+        ), gpytorch.settings.max_cg_iterations(50):
             with gpytorch.fast_pred_var(True):
                 fast_var = gp_model(test_x).var()
                 fast_var_cache = gp_model(test_x).var()

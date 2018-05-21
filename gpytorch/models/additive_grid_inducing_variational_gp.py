@@ -4,9 +4,9 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch import nn
-from ..random_variables import GaussianRandomVariable
-from .grid_inducing_variational_gp import GridInducingVariationalGP
+from gpytorch.models.grid_inducing_variational_gp import GridInducingVariationalGP
+from gpytorch.priors.smoothed_box import SmoothedBoxPrior
+from gpytorch.random_variables import GaussianRandomVariable
 
 
 class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
@@ -29,21 +29,23 @@ class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
         # Mixing parameters
         if mixing_params:
             self.register_parameter(
-                "mixing_params",
-                nn.Parameter(torch.Tensor(n_components).fill_(1. / n_components)),
-                bounds=(-2, 2),
+                name="mixing_params",
+                parameter=torch.nn.Parameter(
+                    torch.Tensor(n_components).fill_(1. / n_components)
+                ),
+                prior=SmoothedBoxPrior(-2, 2, sigma=0.01),
             )
 
     def _compute_grid(self, inputs):
         n_data, n_components, n_dimensions = inputs.size()
-        inputs = inputs.transpose(0, 1).contiguous().view(
-            n_components * n_data, n_dimensions
+        inputs = (
+            inputs.transpose(0, 1)
+            .contiguous()
+            .view(n_components * n_data, n_dimensions)
         )
         interp_indices, interp_values = super(
             AdditiveGridInducingVariationalGP, self
-        )._compute_grid(
-            inputs
-        )
+        )._compute_grid(inputs)
         interp_indices = interp_indices.view(n_components, n_data, -1)
         interp_values = interp_values.view(n_components, n_data, -1)
 
@@ -60,8 +62,8 @@ class AdditiveGridInducingVariationalGP(GridInducingVariationalGP):
 
         chol_covar_init = torch.eye(mean_init.size(-1)).type_as(mean_init)
         chol_covar_init = chol_covar_init.unsqueeze_(0).repeat(batch_size, 1, 1)
-        chol_covar_init += chol_covar_init.new(chol_covar_init.size()).normal_().mul_(
-            1e-1
+        chol_covar_init += (
+            chol_covar_init.new(chol_covar_init.size()).normal_().mul_(1e-1)
         )
 
         self.variational_mean.data.copy_(mean_init)

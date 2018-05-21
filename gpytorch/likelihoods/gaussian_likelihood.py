@@ -5,19 +5,19 @@ from __future__ import unicode_literals
 
 import torch
 import math
-from ..functions import add_diag
-from ..random_variables import GaussianRandomVariable
-from .likelihood import Likelihood
+from gpytorch.functions import add_diag
+from gpytorch.random_variables import GaussianRandomVariable
+from gpytorch.likelihoods import Likelihood
 
 
 class GaussianLikelihood(Likelihood):
 
-    def __init__(self, noise_prior=None):
+    def __init__(self, log_noise_prior=None):
         super(GaussianLikelihood, self).__init__()
         self.register_parameter(
             name="log_noise",
             parameter=torch.nn.Parameter(torch.zeros(1)),
-            prior=noise_prior,
+            prior=log_noise_prior,
         )
 
     def forward(self, input):

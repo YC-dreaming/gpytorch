@@ -4,9 +4,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import math
-
 import torch
-from .kernel import Kernel
+from gpytorch.kernels import Kernel
 
 
 class PeriodicKernel(Kernel):

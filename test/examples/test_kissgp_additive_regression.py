@@ -11,8 +11,9 @@ import gpytorch
 from torch import optim
 from torch.autograd import Variable
 from gpytorch.kernels import RBFKernel, AdditiveGridInterpolationKernel
-from gpytorch.means import ConstantMean
 from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.means import ConstantMean
+from gpytorch.priors import SmoothedBoxPrior
 from gpytorch.random_variables import GaussianRandomVariable
 
 # Simple training data: let's try to learn a sine function,
@@ -45,8 +46,10 @@ class GPRegressionModel(gpytorch.models.ExactGP):
 
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
-        self.mean_module = ConstantMean(constant_bounds=(-1, 1))
-        self.base_covar_module = RBFKernel(log_lengthscale_bounds=(-3, 3))
+        self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
+        self.base_covar_module = RBFKernel(
+            log_lengthscale_prior=SmoothedBoxPrior(-3, 3)
+        )
         self.covar_module = AdditiveGridInterpolationKernel(
             self.base_covar_module, grid_size=100, grid_bounds=[(0, 1)], n_components=2
         )
@@ -78,9 +81,7 @@ class TestKISSGPAdditiveRegression(unittest.TestCase):
 
         with gpytorch.settings.max_preconditioner_size(
             10
-        ), gpytorch.settings.max_cg_iterations(
-            30
-        ):
+        ), gpytorch.settings.max_cg_iterations(30):
             # Optimize the model
             gp_model.train()
             likelihood.train()

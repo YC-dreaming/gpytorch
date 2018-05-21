@@ -5,8 +5,7 @@ from __future__ import unicode_literals
 
 import math
 import torch
-from torch import nn
-from .kernel import Kernel
+from gpytorch.kernels import Kernel
 
 
 class SpectralMixtureKernel(Kernel):
@@ -26,18 +25,18 @@ class SpectralMixtureKernel(Kernel):
         super(SpectralMixtureKernel, self).__init__(active_dims=active_dims)
         self.register_parameter(
             name="log_mixture_weights",
-            parameter=nn.Parameter(torch.zeros(self.n_mixtures)),
-            # TODO: Add prior
+            parameter=torch.nn.Parameter(torch.zeros(self.n_mixtures)),
+            prior=log_mixture_weight_prior,
         )
         self.register_parameter(
             name="log_mixture_means",
-            parameter=nn.Parameter(torch.zeros(self.n_mixtures, self.n_dims)),
-            # TODO: Add prior
+            parameter=torch.nn.Parameter(torch.zeros(self.n_mixtures, self.n_dims)),
+            prior=log_mixture_mean_prior,
         )
         self.register_parameter(
             name="log_mixture_scales",
-            parameter=nn.Parameter(torch.zeros(self.n_mixtures, self.n_dims)),
-            # TODO: Add prior
+            parameter=torch.nn.Parameter(torch.zeros(self.n_mixtures, self.n_dims)),
+            prior=log_mixture_scale_prior,
         )
 
     def initialize(self, train_x, train_y, **kwargs):

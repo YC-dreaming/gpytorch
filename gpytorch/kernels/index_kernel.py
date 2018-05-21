@@ -4,8 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import torch
-from torch import nn
-from .kernel import Kernel
+from gpytorch.kernels import Kernel
 
 
 class IndexKernel(Kernel):
@@ -27,13 +26,13 @@ class IndexKernel(Kernel):
         super(IndexKernel, self).__init__(active_dims=active_dims)
         self.register_parameter(
             name="covar_factor",
-            parameter=nn.Parameter(torch.randn(n_tasks, rank)),
-            # TODO: Add prior
+            parameter=torch.nn.Parameter(torch.randn(n_tasks, rank)),
+            prior=covar_factor_prior,
         )
         self.register_parameter(
             name="log_var",
-            parameter=nn.Parameter(torch.randn(n_tasks)),
-            # TODO: Add prior
+            parameter=torch.nn.Parameter(torch.randn(n_tasks)),
+            prior=log_var_prior,
         )
 
     def forward(self, i1, i2):

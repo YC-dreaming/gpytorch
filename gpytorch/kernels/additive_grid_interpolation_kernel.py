@@ -21,8 +21,10 @@ class AdditiveGridInterpolationKernel(GridInterpolationKernel):
     def _compute_grid(self, inputs):
         inputs = inputs.view(inputs.size(0), inputs.size(1), self.n_components, -1)
         batch_size, n_data, n_components, n_dimensions = inputs.size()
-        inputs = inputs.transpose(0, 2).contiguous().view(
-            n_components * batch_size * n_data, n_dimensions
+        inputs = (
+            inputs.transpose(0, 2)
+            .contiguous()
+            .view(n_components * batch_size * n_data, n_dimensions)
         )
         interp_indices, interp_values = Interpolation().interpolate(
             Variable(self.grid), inputs

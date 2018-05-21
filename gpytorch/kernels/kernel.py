@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 from abc import abstractmethod
 import torch
-from ..module import Module
+from gpytorch.module import Module
 
 
 class Kernel(Module):
@@ -14,7 +14,7 @@ class Kernel(Module):
         self,
         has_lengthscale=False,
         ard_num_dims=None,
-        lengthscale_prior=None,
+        log_lengthscale_prior=None,
         active_dims=None,
     ):
         super(Kernel, self).__init__()
@@ -25,7 +25,7 @@ class Kernel(Module):
             self.register_parameter(
                 name="log_lengthscale",
                 parameter=torch.nn.Parameter(torch.zeros(1, 1, lengthscale_num_dims)),
-                prior=lengthscale_prior,
+                prior=log_lengthscale_prior,
             )
 
     @property
