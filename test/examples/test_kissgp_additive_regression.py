@@ -3,8 +3,9 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from math import exp, pi
+
 import os
-import math
 import torch
 import unittest
 import gpytorch
@@ -26,7 +27,7 @@ for i in range(n):
         train_x[i * n + j][1] = float(j) / (n - 1)
 train_x = Variable(train_x)
 train_y = Variable(
-    (torch.sin(train_x.data[:, 0]) + torch.cos(train_x.data[:, 1])) * (2 * math.pi)
+    (torch.sin(train_x.data[:, 0]) + torch.cos(train_x.data[:, 1])) * (2 * pi)
 )
 
 m = 10
@@ -37,7 +38,7 @@ for i in range(m):
         test_x[i * m + j][1] = float(j) / (m - 1)
 test_x = Variable(test_x)
 test_y = Variable(
-    (torch.sin(test_x.data[:, 0]) + torch.cos(test_x.data[:, 1])) * (2 * math.pi)
+    (torch.sin(test_x.data[:, 0]) + torch.cos(test_x.data[:, 1])) * (2 * pi)
 )
 
 
@@ -48,7 +49,9 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
         self.base_covar_module = RBFKernel(
-            log_lengthscale_prior=SmoothedBoxPrior(-3, 3)
+            log_lengthscale_prior=SmoothedBoxPrior(
+                exp(-3), exp(3), sigma=0.1, log_transform=True
+            )
         )
         self.covar_module = AdditiveGridInterpolationKernel(
             self.base_covar_module, grid_size=100, grid_bounds=[(0, 1)], n_components=2

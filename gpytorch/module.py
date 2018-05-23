@@ -144,9 +144,9 @@ class Module(nn.Module):
             )
         super(Module, self).register_parameter(name, parameter)
         if prior is not None:
-            shaped_prior = prior.shape_as(parameter)
-            self.set_priors(**{name: shaped_prior})
-            self.initialize(**{name: shaped_prior.initial_guess})
+            ext_prior = prior.extend(parameter.nelement())
+            self.set_priors(**{name: ext_prior})
+            self.initialize(**{name: ext_prior.initial_guess.view(parameter.shape)})
 
     def register_variational_strategy(self, name):
         self._variational_strategies[name] = None
@@ -164,7 +164,7 @@ class Module(nn.Module):
                     "Unknown parameter %s for %s" % (name, self.__class__.__name__)
                 )
             param = self._parameters[name]
-            self._priors[name] = prior.shape_as(param)
+            self._priors[name] = prior.extend(param.nelement())
             self.initialize(**{name: self._priors[name].initial_guess})
         return self
 

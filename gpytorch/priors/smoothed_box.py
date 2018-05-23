@@ -8,7 +8,7 @@ from numbers import Number
 
 import torch
 from torch.distributions.normal import Normal
-from .prior import Prior
+from gpytorch.priors.prior import Prior
 
 
 class SmoothedBoxPrior(Prior):
@@ -23,7 +23,7 @@ class SmoothedBoxPrior(Prior):
 
     """
 
-    def __init__(self, a, b, sigma=1e-2, log_transform=False):
+    def __init__(self, a, b, sigma=0.01, log_transform=False):
         if isinstance(a, Number) and isinstance(b, Number):
             a = torch.tensor([a], dtype=torch.float)
             b = torch.tensor([b], dtype=torch.float)
@@ -33,27 +33,36 @@ class SmoothedBoxPrior(Prior):
             raise ValueError("a and b must have the same shape")
         if torch.any(b < a):
             raise ValueError("must have that a < b (element-wise)")
-        if len(a) > 1:
-            # TODO: Implement for multi-dimensional parameters
-            raise NotImplementedError(
-                "Multi-dimensional smoothed box priors not yet supported."
-            )
         self._a = a.type(torch.float)
         self._b = b.type(torch.float)
-        self._sigma = self._a.new_tensor(sigma).view(*self._a.shape)
+        if isinstance(sigma, Number):
+            self._sigma = torch.full_like(self._a, sigma)
+        else:
+            self._sigma = sigma.view(self._a.shape)
         self._c = (self._a + self._b) / 2
         self._r = (self._b - self._a) / 2
-        self._tail = Normal(loc=0, scale=self._sigma, validate_args=True)
+        self._tails = [Normal(loc=0, scale=s, validate_args=True) for s in self._sigma]
         # normalization factor to make this a probability distribution
         self._M = torch.log(
             1 + (self._b - self._a) / (math.sqrt(2 * math.pi) * self._sigma)
         )
         self._log_transform = log_transform
 
+    def extend(self, n):
+        if self.size == n:
+            return self
+        elif self.size == 1:
+            self.__init__(
+                a=self._a.repeat(n), b=self._b.repeat(n), sigma=self._sigma.item()
+            )
+            return self
+        else:
+            raise ValueError("Can only extend priors of size 1.")
+
     def _log_prob(self, parameter):
-        # x = "distance from box`"
-        x = ((parameter - self._c).abs_() - self._r).clamp(min=0)
-        return self._tail.log_prob(x) - self._M
+        # x = "distances from box`"
+        X = ((parameter.view(self._a.shape) - self._c).abs_() - self._r).clamp(min=0)
+        return sum(p.log_prob(x) for x, p in zip(X, self._tails)) - self._M.sum()
 
     @property
     def initial_guess(self):
@@ -62,16 +71,6 @@ class SmoothedBoxPrior(Prior):
     def is_in_support(self, parameter):
         return True
 
-    def shape_as(self, tensor):
-        if not self.shape == tensor.shape:
-            try:
-                a_new = self._a.view_as(tensor)
-                b_new = self._b.view_as(tensor)
-            except RuntimeError:
-                raise ValueError("Prior and parameter have incompatible shapes.")
-            self.__init__(a=a_new, b=b_new, sigma=self._sigma)
-        return self
-
     @property
-    def shape(self):
-        return self._a.shape
+    def size(self):
+        return len(self._a)

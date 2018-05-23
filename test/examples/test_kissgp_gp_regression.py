@@ -3,8 +3,9 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from math import exp, pi
+
 import os
-import math
 import torch
 import unittest
 import gpytorch
@@ -21,9 +22,9 @@ from gpytorch.random_variables import GaussianRandomVariable
 # but with KISS-GP let's use 100 training examples.
 def make_data(cuda=False):
     train_x = Variable(torch.linspace(0, 1, 100))
-    train_y = Variable(torch.sin(train_x.data * (2 * math.pi)))
+    train_y = Variable(torch.sin(train_x.data * (2 * pi)))
     test_x = Variable(torch.linspace(0, 1, 51))
-    test_y = Variable(torch.sin(test_x.data * (2 * math.pi)))
+    test_y = Variable(torch.sin(test_x.data * (2 * pi)))
     if cuda:
         train_x = train_x.cuda()
         train_y = train_y.cuda()
@@ -37,7 +38,11 @@ class GPRegressionModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
-        self.base_covar_module = RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(-5, 6))
+        self.base_covar_module = RBFKernel(
+            log_lengthscale_prior=SmoothedBoxPrior(
+                exp(-5), exp(6), sigma=0.1, log_transform=True
+            )
+        )
         self.covar_module = GridInterpolationKernel(
             self.base_covar_module, grid_size=50, grid_bounds=[(0, 1)]
         )

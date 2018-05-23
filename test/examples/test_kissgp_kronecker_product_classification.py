@@ -3,6 +3,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from math import exp
+
 import os
 import torch
 import unittest
@@ -34,11 +36,15 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
             grid_size=8, grid_bounds=[(0, 3), (0, 3)]
         )
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
-        self.covar_module = RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(-2.5, 3))
+        self.covar_module = RBFKernel(
+            log_lengthscale_prior=SmoothedBoxPrior(
+                exp(-2.5), exp(3), sigma=0.1, log_transform=True
+            )
+        )
         self.register_parameter(
             name="log_outputscale",
             parameter=nn.Parameter(torch.Tensor([0])),
-            prior=SmoothedBoxPrior(-5, 6),
+            prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True),
         )
 
     def forward(self, x):

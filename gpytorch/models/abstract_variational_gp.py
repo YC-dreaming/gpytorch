@@ -22,12 +22,10 @@ class AbstractVariationalGP(Module):
         self.register_parameter(
             name="variational_mean",
             parameter=torch.nn.Parameter(torch.zeros(n_inducing)),
-            # TODO Add prior bounds: (-1e4, 1e4)
         )
         self.register_parameter(
             name="chol_variational_covar",
             parameter=torch.nn.Parameter(torch.eye(n_inducing, n_inducing)),
-            # TODO Add prior bounds: (-100, 100)
         )
         self.register_variational_strategy("inducing_point_strategy")
 

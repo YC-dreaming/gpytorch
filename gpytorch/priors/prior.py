@@ -8,6 +8,10 @@ from abc import abstractmethod, abstractproperty, ABC
 
 class Prior(ABC):
 
+    @abstractmethod
+    def extend(self, n):
+        raise NotImplementedError()
+
     @abstractproperty
     def initial_guess(self):
         raise NotImplementedError()
@@ -27,20 +31,19 @@ class Prior(ABC):
     def log_prob(self, parameter):
         return self._log_prob(parameter.exp() if self.log_transform else parameter)
 
-    @abstractmethod
-    def shape_as(self, tensor):
-        raise NotImplementedError()
-
     @abstractproperty
-    def shape(self):
+    def size(self):
         raise NotImplementedError()
 
 
 class TorchDistributionPrior(Prior):
 
-    @property
-    def distribution(self):
-        return self._distribution
-
     def _log_prob(self, parameter):
-        return self.distribution.log_prob(parameter)
+        return sum(
+            d.log_prob(p) for d, p in
+            zip(self._distributions, parameter.view(self.size))
+        )
+
+    @property
+    def size(self):
+        return len(self._distributions)

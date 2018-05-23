@@ -3,7 +3,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import math
+from math import exp, pi
+
 import torch
 import unittest
 import gpytorch
@@ -18,10 +19,10 @@ from gpytorch.random_variables import GaussianRandomVariable
 
 # Simple training data: let's try to learn a sine function
 train_x = Variable(torch.linspace(0, 1, 11))
-train_y = Variable(torch.sin(train_x.data * (2 * math.pi)))
+train_y = Variable(torch.sin(train_x.data * (2 * pi)))
 
 test_x = Variable(torch.linspace(0, 1, 51))
-test_y = Variable(torch.sin(test_x.data * (2 * math.pi)))
+test_y = Variable(torch.sin(test_x.data * (2 * pi)))
 
 
 class ExactGPModel(gpytorch.models.ExactGP):
@@ -29,7 +30,11 @@ class ExactGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_inputs, train_targets, likelihood):
         super(ExactGPModel, self).__init__(train_inputs, train_targets, likelihood)
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1, 1))
-        self.covar_module = RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(-3, 3))
+        self.covar_module = RBFKernel(
+            log_lengthscale_prior=SmoothedBoxPrior(
+                exp(-3), exp(3), sigma=0.1, log_transform=True
+            )
+        )
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -41,10 +46,18 @@ class TestSimpleGPRegression(unittest.TestCase):
 
     def test_posterior_latent_gp_and_likelihood_without_optimization(self):
         # We're manually going to set the hyperparameters to be ridiculous
-        likelihood = GaussianLikelihood(log_noise_prior=SmoothedBoxPrior(-10, 10))
+        likelihood = GaussianLikelihood(
+            log_noise_prior=SmoothedBoxPrior(
+                exp(-10), exp(10), sigma=0.5, log_transform=True
+            )
+        )
         gp_model = ExactGPModel(train_x.data, train_y.data, likelihood)
         # Update lengthscale prior to accommodate extreme parameters
-        gp_model.covar_module.set_priors(log_lengthscale=SmoothedBoxPrior(-10, 10))
+        gp_model.covar_module.set_priors(
+            log_lengthscale=SmoothedBoxPrior(
+                exp(-10), exp(10), sigma=0.5, log_transform=True
+            )
+        )
         gp_model.covar_module.initialize(log_lengthscale=-10)
         likelihood.initialize(log_noise=-10)
 
@@ -69,7 +82,11 @@ class TestSimpleGPRegression(unittest.TestCase):
 
     def test_posterior_latent_gp_and_likelihood_with_optimization(self):
         # We're manually going to set the hyperparameters to something they shouldn't be
-        likelihood = GaussianLikelihood(log_noise_prior=SmoothedBoxPrior(-3, 3))
+        likelihood = GaussianLikelihood(
+            log_noise_prior=SmoothedBoxPrior(
+                exp(-3), exp(3), sigma=0.1, log_transform=True
+            )
+        )
         gp_model = ExactGPModel(train_x.data, train_y.data, likelihood)
         mll = gpytorch.ExactMarginalLogLikelihood(likelihood, gp_model)
         gp_model.covar_module.initialize(log_lengthscale=1)
@@ -113,7 +130,11 @@ class TestSimpleGPRegression(unittest.TestCase):
         with gpytorch.fast_pred_var():
             # We're manually going to set the hyperparameters to
             # something they shouldn't be
-            likelihood = GaussianLikelihood(log_noise_prior=SmoothedBoxPrior(-3, 3))
+            likelihood = GaussianLikelihood(
+                log_noise_prior=SmoothedBoxPrior(
+                    exp(-3), exp(3), sigma=0.1, log_transform=True
+                )
+            )
             gp_model = ExactGPModel(train_x.data, train_y.data, likelihood)
             mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, gp_model)
             gp_model.covar_module.initialize(log_lengthscale=1)
@@ -164,7 +185,9 @@ class TestSimpleGPRegression(unittest.TestCase):
             # We're manually going to set the hyperparameters to
             # something they shouldn't be
             likelihood = GaussianLikelihood(
-                log_noise_prior=SmoothedBoxPrior(-3, 3)
+                log_noise_prior=SmoothedBoxPrior(
+                    exp(-3), exp(3), sigma=0.1, log_transform=True
+                )
             ).cuda()
             gp_model = ExactGPModel(
                 train_x.data.cuda(), train_y.data.cuda(), likelihood

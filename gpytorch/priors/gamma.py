@@ -7,7 +7,7 @@ from numbers import Number
 
 import torch
 from torch.distributions.gamma import Gamma
-from .prior import TorchDistributionPrior
+from gpytorch.priors.prior import TorchDistributionPrior
 
 
 class GammaPrior(TorchDistributionPrior):
@@ -22,33 +22,33 @@ class GammaPrior(TorchDistributionPrior):
             )
         elif concentration.shape != rate.shape:
             raise ValueError("concentration and rate must have the same shape")
-        self._distribution = Gamma(
-            concentration=concentration.type(torch.float),
-            rate=rate.type(torch.float),
-            validate_args=True,
-        )
+        self._distributions = [
+            Gamma(concentration=c, rate=r, validate_args=True)
+            for c, r in zip(concentration, rate)
+        ]
         self._log_transform = log_transform
+
+    def extend(self, n):
+        if self.size == n:
+            return self
+        elif self.size == 1:
+            c = self._distributions[0].concentration.item()
+            r = self._distributions[0].rate.item()
+            self._distributions = [
+                Gamma(concentration=c, rate=r, validate_args=True)
+                for _ in range(n)
+            ]
+            return self
+        else:
+            raise ValueError("Can only extend priors of size 1.")
 
     @property
     def initial_guess(self):
         # return mode if it exists, o/w mean
-        c = self.distribution.concentration
+        c = torch.cat([d.concentration.view(-1) for d in self._distributions])
+        r = torch.cat([d.rate.view(-1) for d in self._distributions])
         has_mode = (c > 1).type_as(c)
-        return (c - has_mode) / self.distribution.rate
+        return (c - has_mode) / r
 
     def is_in_support(self, parameter):
         return bool((parameter > 0).all().item())
-
-    def shape_as(self, tensor):
-        if not self.shape == tensor.shape:
-            try:
-                concentration_new = self.distribution.concentration.view_as(tensor)
-                rate_new = self.distribution.rate.view_as(tensor)
-            except RuntimeError:
-                raise ValueError("Prior and parameter have incompatible shapes.")
-            self._distribution = Gamma(concentration=concentration_new, rate=rate_new)
-        return self
-
-    @property
-    def shape(self):
-        return self.distribution.concentration.shape

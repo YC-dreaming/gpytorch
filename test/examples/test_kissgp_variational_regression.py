@@ -3,8 +3,9 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from math import exp, pi
+
 import os
-import math
 import torch
 import unittest
 import gpytorch
@@ -22,9 +23,9 @@ from gpytorch.random_variables import GaussianRandomVariable
 # but with KISS-GP let's use 100 training examples.
 def make_data():
     train_x = torch.linspace(0, 1, 1000)
-    train_y = torch.sin(train_x * (2 * math.pi))
+    train_y = torch.sin(train_x * (2 * pi))
     test_x = torch.linspace(0, 1, 51)
-    test_y = torch.sin(test_x * (2 * math.pi))
+    test_y = torch.sin(test_x * (2 * pi))
     return train_x, train_y, test_x, test_y
 
 
@@ -35,11 +36,15 @@ class GPRegressionModel(gpytorch.models.GridInducingVariationalGP):
             grid_size=20, grid_bounds=[(-0.05, 1.05)]
         )
         self.mean_module = ConstantMean(prior=SmoothedBoxPrior(-1e-5, 1e-5))
-        self.covar_module = RBFKernel(log_lengthscale_prior=SmoothedBoxPrior(-5, 6))
+        self.covar_module = RBFKernel(
+            log_lengthscale_prior=SmoothedBoxPrior(
+                exp(-5), exp(6), sigma=0.1, log_transform=True
+            )
+        )
         self.register_parameter(
             name="log_outputscale",
             parameter=torch.nn.Parameter(torch.Tensor([0])),
-            prior=SmoothedBoxPrior(-5, 6),
+            prior=SmoothedBoxPrior(exp(-5), exp(6), sigma=0.1, log_transform=True),
         )
 
     def forward(self, x):
