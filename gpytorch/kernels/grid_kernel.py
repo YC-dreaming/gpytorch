@@ -45,13 +45,13 @@ class GridKernel(Kernel):
                 first_item = grid_var[:, 0:1].contiguous()
                 covar_columns = self.base_kernel_module(first_item, grid_var, **kwargs)
                 covars = [
-                    ToeplitzLazyVariable(covar_columns[i : i + 1].squeeze(-2))
+                    ToeplitzLazyVariable(covar_columns[i : i + 1].evaluate().tensor.squeeze(-2))
                     for i in range(n_dim)
                 ]
             else:
                 grid_var = grid_var.view(n_dim, -1, 1)
                 covars = self.base_kernel_module(grid_var, grid_var, **kwargs)
-                covars = [NonLazyVariable(covars[i : i + 1]) for i in range(n_dim)]
+                covars = [covars[i : i + 1].evaluate() for i in range(n_dim)]
 
             if n_dim > 1:
                 covar = KroneckerProductLazyVariable(*covars)

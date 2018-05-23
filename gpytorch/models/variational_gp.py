@@ -64,10 +64,10 @@ class VariationalGP(AbstractVariationalGP):
 
             induc_mean = full_mean[:n_induc]
             test_mean = full_mean[n_induc:]
-            induc_induc_covar = full_covar[:n_induc, :n_induc]
-            induc_test_covar = full_covar[:n_induc, n_induc:]
-            test_induc_covar = full_covar[n_induc:, :n_induc]
-            test_test_covar = full_covar[n_induc:, n_induc:]
+            induc_induc_covar = full_covar[:n_induc, :n_induc].evaluate()
+            induc_test_covar = full_covar[:n_induc, n_induc:].evaluate()
+            test_induc_covar = full_covar[n_induc:, :n_induc].evaluate()
+            test_test_covar = full_covar[n_induc:, n_induc:].evaluate()
 
             # Compute alpha cache
             if not self.has_computed_alpha:
