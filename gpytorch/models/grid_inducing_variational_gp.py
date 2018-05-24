@@ -40,9 +40,7 @@ class GridInducingVariationalGP(AbstractVariationalGP):
                 if prev_points is not None:
                     inducing_points[
                         j * grid_size ** i : (j + 1) * grid_size ** i, :i
-                    ].copy_(
-                        prev_points
-                    )
+                    ].copy_(prev_points)
             prev_points = inducing_points[: grid_size ** (i + 1), : (i + 1)]
 
         super(GridInducingVariationalGP, self).__init__(inducing_points)
@@ -61,8 +59,8 @@ class GridInducingVariationalGP(AbstractVariationalGP):
         mean_init = prior_output.mean().data
         mean_init += mean_init.new(mean_init.size()).normal_().mul_(1e-1)
         chol_covar_init = torch.eye(len(mean_init)).type_as(mean_init)
-        chol_covar_init += chol_covar_init.new(chol_covar_init.size()).normal_().mul_(
-            1e-1
+        chol_covar_init += (
+            chol_covar_init.new(chol_covar_init.size()).normal_().mul_(1e-1)
         )
         self.variational_mean.data.copy_(mean_init)
         self.chol_variational_covar.data.copy_(chol_covar_init)

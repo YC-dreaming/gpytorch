@@ -23,46 +23,54 @@ class SmoothedBoxPrior(Prior):
 
     """
 
-    def __init__(self, a, b, sigma=0.01, log_transform=False):
+    def __init__(self, a, b, sigma=0.01, log_transform=False, size=None):
         if isinstance(a, Number) and isinstance(b, Number):
-            a = torch.tensor([a], dtype=torch.float)
-            b = torch.tensor([b], dtype=torch.float)
+            a = torch.full((size or 1,), float(a))
+            b = torch.full((size or 1,), float(b))
         elif not (torch.is_tensor(a) and torch.is_tensor(b)):
             raise ValueError("a and b must be both either scalars or Tensors")
         elif a.shape != b.shape:
             raise ValueError("a and b must have the same shape")
+        elif size is not None:
+            raise ValueError("can only set size for scalar a and b")
         if torch.any(b < a):
             raise ValueError("must have that a < b (element-wise)")
-        self._a = a.type(torch.float)
-        self._b = b.type(torch.float)
-        if isinstance(sigma, Number):
-            self._sigma = torch.full_like(self._a, sigma)
-        else:
-            self._sigma = sigma.view(self._a.shape)
-        self._c = (self._a + self._b) / 2
-        self._r = (self._b - self._a) / 2
-        self._tails = [Normal(loc=0, scale=s, validate_args=True) for s in self._sigma]
-        # normalization factor to make this a probability distribution
-        self._M = torch.log(
-            1 + (self._b - self._a) / (math.sqrt(2 * math.pi) * self._sigma)
+        super(SmoothedBoxPrior, self).__init__()
+        self.register_buffer("a", a.view(-1).clone())
+        self.register_buffer("b", b.view(-1).clone())
+        self.register_buffer(
+            "sigma",
+            torch.full_like(self.a, float(sigma))
+            if isinstance(sigma, Number)
+            else sigma.view(self.a.shape).clone(),
         )
+        self.register_buffer("_loc", torch.zeros_like(self.sigma))
+        self._initialize_distributions()
         self._log_transform = log_transform
 
-    def extend(self, n):
-        if self.size == n:
-            return self
-        elif self.size == 1:
-            self.__init__(
-                a=self._a.repeat(n), b=self._b.repeat(n), sigma=self._sigma.item()
-            )
-            return self
-        else:
-            raise ValueError("Can only extend priors of size 1.")
+    def _initialize_distributions(self):
+        self._tails = [
+            Normal(loc=l, scale=s, validate_args=True)
+            for l, s in zip(self._loc, self.sigma)
+        ]
+
+    @property
+    def _c(self):
+        return (self.a + self.b) / 2
+
+    @property
+    def _r(self):
+        return (self.b - self.a) / 2
+
+    @property
+    def _M(self):
+        # normalization factor to make this a probability distribution
+        return torch.log(1 + (self.b - self.a) / (math.sqrt(2 * math.pi) * self.sigma))
 
     def _log_prob(self, parameter):
         # x = "distances from box`"
-        X = ((parameter.view(self._a.shape) - self._c).abs_() - self._r).clamp(min=0)
-        return sum(p.log_prob(x) for x, p in zip(X, self._tails)) - self._M.sum()
+        X = ((parameter.view(self.a.shape) - self._c).abs_() - self._r).clamp(min=0)
+        return sum(p.log_prob(x) for p, x in zip(self._tails, X)) - self._M.sum()
 
     @property
     def initial_guess(self):
@@ -73,4 +81,4 @@ class SmoothedBoxPrior(Prior):
 
     @property
     def size(self):
-        return len(self._a)
+        return len(self.tails)

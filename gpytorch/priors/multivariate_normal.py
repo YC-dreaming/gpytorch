@@ -20,31 +20,35 @@ class MultivariateNormalPrior(TorchDistributionPrior):
     ):
         if not torch.is_tensor(loc):
             raise ValueError("loc must be a torch Tensor")
-        self._distribution = MultivariateNormal(
+        super(MultivariateNormalPrior, self).__init__()
+        # let's be lazy and not do the conversion to scale_tril ourselves
+        mvn = MultivariateNormal(
             loc=loc,
             covariance_matrix=covariance_matrix,
             precision_matrix=precision_matrix,
-            scale_tril=precision_matrix,
+            scale_tril=scale_tril,
             validate_args=True,
         )
+        self.register_buffer("loc", mvn.loc.clone())
+        self.register_buffer("scale_tril", mvn.scale_tril.clone())
+        self._initialize_distributions()
         self._log_transform = log_transform
 
-    def _log_prob(self, parameter):
-        return self._distribution.log_prob(parameter.view(self.size))
+    def _initialize_distributions(self):
+        self._distribution = MultivariateNormal(
+            loc=self.loc, scale_tril=self.scale_tril
+        )
 
-    def extend(self, n):
-        if self.size == n:
-            return self
-        else:
-            raise NotImplementedError("Cannot extend MultivariateNormalPrior.")
+    def _log_prob(self, parameter):
+        return self._distribution.log_prob(parameter.view(-1))
 
     @property
     def initial_guess(self):
-        return self.distribution.mean
+        return self._distribution.mean
 
     def is_in_support(self, parameter):
         return True
 
     @property
     def size(self):
-        return len(self._distribution.loc)
+        return self.loc.nelement()

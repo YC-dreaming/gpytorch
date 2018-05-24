@@ -12,37 +12,31 @@ from gpytorch.priors.prior import TorchDistributionPrior
 
 class NormalPrior(TorchDistributionPrior):
 
-    def __init__(self, loc, scale, log_transform=False):
+    def __init__(self, loc, scale, log_transform=False, size=None):
         if isinstance(loc, Number) and isinstance(scale, Number):
-            loc = torch.tensor([loc], dtype=torch.float)
-            scale = torch.tensor([scale], dtype=torch.float)
+            loc = torch.full((size or 1,), float(loc))
+            scale = torch.full((size or 1,), float(scale))
         elif not (torch.is_tensor(loc) and torch.is_tensor(scale)):
             raise ValueError("loc and scale must be both either scalars or Tensors")
         elif loc.shape != scale.shape:
             raise ValueError("loc and scale must have the same shape")
-        self._distributions = [
-            Normal(loc=lc, scale=sc, validate_args=True)
-            for lc, sc in zip(loc, scale)
-        ]
+        elif size is not None:
+            raise ValueError("can only set size for scalar loc and scale")
+        super(NormalPrior, self).__init__()
+        self.register_buffer("loc", loc.view(-1).clone())
+        self.register_buffer("scale", scale.view(-1).clone())
+        self._initialize_distributions()
         self._log_transform = log_transform
 
-    def extend(self, n):
-        if self.size == n:
-            return self
-        elif self.size == 1:
-            loc = self._distributions[0].loc.item()
-            scale = self._distributions[0].scale.item()
-            self._distributions = [
-                Normal(loc=loc, scale=scale, validate_args=True)
-                for _ in range(n)
-            ]
-            return self
-        else:
-            raise ValueError("Can only extend priors of size 1.")
+    def _initialize_distributions(self):
+        self._distributions = [
+            Normal(loc=lc, scale=sc, validate_args=True)
+            for lc, sc in zip(self.loc, self.scale)
+        ]
 
     @property
     def initial_guess(self):
-        return torch.cat([d.mean.view(-1) for d in self._distributions])
+        return self.loc
 
     def is_in_support(self, parameter):
         return True

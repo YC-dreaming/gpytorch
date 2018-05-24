@@ -12,43 +12,35 @@ from gpytorch.priors.prior import TorchDistributionPrior
 
 class GammaPrior(TorchDistributionPrior):
 
-    def __init__(self, concentration, rate, log_transform=False):
+    def __init__(self, concentration, rate, log_transform=False, size=None):
+        super(GammaPrior, self).__init__()
         if isinstance(concentration, Number) and isinstance(rate, Number):
-            concentration = torch.tensor([concentration])
-            rate = torch.tensor([rate])
+            concentration = torch.full((size or 1,), float(concentration))
+            rate = torch.full((size or 1,), float(rate))
         elif not (torch.is_tensor(concentration) and torch.is_tensor(rate)):
             raise ValueError(
                 "concentration and rate must be both either scalars or Tensors"
             )
         elif concentration.shape != rate.shape:
             raise ValueError("concentration and rate must have the same shape")
-        self._distributions = [
-            Gamma(concentration=c, rate=r, validate_args=True)
-            for c, r in zip(concentration, rate)
-        ]
+        elif size is not None:
+            raise ValueError("can only set size for scalar concentration and rate")
+        self.register_buffer("concentration", concentration.view(-1).clone())
+        self.register_buffer("rate", rate.view(-1).clone())
+        self._initialize_distributions()
         self._log_transform = log_transform
 
-    def extend(self, n):
-        if self.size == n:
-            return self
-        elif self.size == 1:
-            c = self._distributions[0].concentration.item()
-            r = self._distributions[0].rate.item()
-            self._distributions = [
-                Gamma(concentration=c, rate=r, validate_args=True)
-                for _ in range(n)
-            ]
-            return self
-        else:
-            raise ValueError("Can only extend priors of size 1.")
+    def _initialize_distributions(self):
+        self._distributions = [
+            Gamma(concentration=c, rate=r, validate_args=True)
+            for c, r in zip(self.concentration, self.rate)
+        ]
 
     @property
     def initial_guess(self):
         # return mode if it exists, o/w mean
-        c = torch.cat([d.concentration.view(-1) for d in self._distributions])
-        r = torch.cat([d.rate.view(-1) for d in self._distributions])
-        has_mode = (c > 1).type_as(c)
-        return (c - has_mode) / r
+        has_mode = (self.concentration > 1).type_as(self.concentration)
+        return (self.concentration - has_mode) / self.rate
 
     def is_in_support(self, parameter):
         return bool((parameter > 0).all().item())

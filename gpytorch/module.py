@@ -16,7 +16,6 @@ class Module(nn.Module):
 
     def __init__(self):
         super(Module, self).__init__()
-        self._bounds = OrderedDict()
         self._priors = OrderedDict()
         self._variational_strategies = OrderedDict()
 
@@ -31,23 +30,6 @@ class Module(nn.Module):
                     parameter_name, type(self).__name__, module
                 )
             )
-
-    def bound_for(self, name):
-        """
-        Get bounds for parameter
-
-        name (str): parameter name
-        """
-        if "." in name:
-            module, name = self._get_module_and_name(name)
-            return module.bound_for(name)
-        else:
-            if name in self._parameters:
-                return self._bounds[name]
-            else:
-                raise AttributeError(
-                    "Module {} has no parameter {}".format(type(self).__name__, name)
-                )
 
     def prior_for(self, name):
         """
@@ -79,7 +61,9 @@ class Module(nn.Module):
         for name, val in kwargs.items():
             if name not in self._parameters:
                 raise AttributeError(
-                    "Unknown parameter %s for %s" % (name, self.__class__.__name__)
+                    "Unknown parameter {p} for {c}".format(
+                        p=name, c=self.__class__.__name__
+                    )
                 )
             if torch.is_tensor(val):
                 self.__getattr__(name).data.copy_(val)
@@ -144,9 +128,8 @@ class Module(nn.Module):
             )
         super(Module, self).register_parameter(name, parameter)
         if prior is not None:
-            ext_prior = prior.extend(parameter.nelement())
-            self.set_priors(**{name: ext_prior})
-            self.initialize(**{name: ext_prior.initial_guess.view(parameter.shape)})
+            self.set_priors(**{name: prior})
+            self.initialize(**{name: prior.initial_guess.view(parameter.shape)})
 
     def register_variational_strategy(self, name):
         self._variational_strategies[name] = None
@@ -163,9 +146,9 @@ class Module(nn.Module):
                 raise AttributeError(
                     "Unknown parameter %s for %s" % (name, self.__class__.__name__)
                 )
-            param = self._parameters[name]
-            self._priors[name] = prior.extend(param.nelement())
-            self.initialize(**{name: self._priors[name].initial_guess})
+            self.add_module('_'.join([name, "prior"]), prior)
+            self._priors[name] = prior
+            self.initialize(**{name: prior.initial_guess})
         return self
 
     def variational_strategies(self):
